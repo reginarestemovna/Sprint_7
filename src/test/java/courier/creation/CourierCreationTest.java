@@ -1,30 +1,32 @@
 package courier.creation;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 
+import api.CourierApi;
+import base.BaseTest;
 import io.qameta.allure.Description;
-import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import java.util.UUID;
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class CourierCreationTest {
+public class CourierCreationTest extends BaseTest {
 
-  private static final String COURIER_PATH = "/api/v1/courier";
-  private static final String URL = "http://qa-scooter.praktikum-services.ru";
+  private static final String LOGIN = UUID.randomUUID().toString();
+  private static final String PASSWORD = UUID.randomUUID().toString();
 
   private final Integer statusCode;
   private final String responseFieldName;
-  private final Matcher<Object> responseFieldValueMatcher;
   private final CourierCreationRequest body;
+  private final Matcher<Object> responseFieldValueMatcher;
+
+  private CourierApi courierApi;
 
   public CourierCreationTest(
       Integer statusCode,
@@ -37,16 +39,21 @@ public class CourierCreationTest {
     this.body = body;
   }
 
+  @Before
+  @Override
+  public void setUp() {
+    super.setUp();
+    courierApi = new CourierApi();
+  }
+
   @Parameterized.Parameters
   public static Object[][] getLocatorsAndText() {
-    String parameter = UUID.randomUUID().toString();
     return new Object[][] {
-      {201, "ok", equalTo(true), new CourierCreationRequest(parameter, parameter, parameter)},
       {
-        409,
-        "message",
-        equalTo("Этот логин уже используется. Попробуйте другой."),
-        new CourierCreationRequest(parameter, parameter, parameter)
+        201,
+        "ok",
+        equalTo(true),
+        new CourierCreationRequest(LOGIN, PASSWORD, UUID.randomUUID().toString())
       },
       {
         400,
@@ -63,32 +70,17 @@ public class CourierCreationTest {
     };
   }
 
-  @Before
-  public void setUp() {
-    RestAssured.baseURI = URL;
-  }
-
   @Test
   @DisplayName("Test courier creation of /api/v1/courier")
   @Description("Check status code and response message")
   public void courierCreation() {
-    Response response = sendRequest();
+    Response response = courierApi.create(body);
 
-    response
-        .then()
-        .assertThat()
-        .body(responseFieldName, responseFieldValueMatcher)
-        .and()
-        .statusCode(statusCode);
+    testResponse(response, responseFieldName, responseFieldValueMatcher, statusCode);
   }
 
-  @Step("Send request to server")
-  public Response sendRequest() {
-    return given()
-        .header("Content-type", "application/json")
-        .and()
-        .body(body)
-        .when()
-        .post(COURIER_PATH);
+  @After
+  public void cleanup() {
+    courierApi.deleteTestData(LOGIN, PASSWORD);
   }
 }

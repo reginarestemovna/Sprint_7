@@ -1,28 +1,24 @@
 package courier.login;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
+import api.CourierApi;
+import base.BaseTest;
 import courier.creation.CourierCreationRequest;
 import io.qameta.allure.Description;
-import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import java.util.UUID;
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class CourierLoginTest {
-  private static final String COURIER_CREATION_PATH = "/api/v1/courier";
-  private static final String COURIER_LOGIN_PATH = "/api/v1/courier/login";
-  private static final String URL = "http://qa-scooter.praktikum-services.ru";
-
+public class CourierLoginTest extends BaseTest {
   private static final String LOGIN = UUID.randomUUID().toString();
   private static final String PASSWORD = UUID.randomUUID().toString();
 
@@ -30,6 +26,8 @@ public class CourierLoginTest {
   private final String responseFieldName;
   private final Matcher<Object> responseFieldValueMatcher;
   private final CourierLoginRequest body;
+
+  private CourierApi courierApi;
 
   public CourierLoginTest(
       Integer statusCode,
@@ -40,6 +38,17 @@ public class CourierLoginTest {
     this.responseFieldName = responseFieldName;
     this.responseFieldValueMatcher = responseFieldValueMatcher;
     this.body = body;
+  }
+
+  @Before
+  @Override
+  public void setUp() {
+    super.setUp();
+    courierApi = new CourierApi();
+
+    CourierCreationRequest courierCreationRequest =
+        new CourierCreationRequest(LOGIN, PASSWORD, UUID.randomUUID().toString());
+    courierApi.create(courierCreationRequest);
   }
 
   @Parameterized.Parameters
@@ -70,42 +79,17 @@ public class CourierLoginTest {
     };
   }
 
-  @Before
-  public void setUp() {
-    RestAssured.baseURI = URL;
-
-    CourierCreationRequest courierCreationRequest =
-        new CourierCreationRequest(LOGIN, PASSWORD, UUID.randomUUID().toString());
-
-    given()
-        .header("Content-type", "application/json")
-        .and()
-        .body(courierCreationRequest)
-        .when()
-        .post(COURIER_CREATION_PATH);
-  }
-
   @Test
   @DisplayName("Test courier login of /api/v1/courier/login")
   @Description("Check status code and response message")
-  public void courierCreation() {
-    Response response = sendRequest();
+  public void courierLogin() {
+    Response response = courierApi.login(body);
 
-    response
-        .then()
-        .assertThat()
-        .body(responseFieldName, responseFieldValueMatcher)
-        .and()
-        .statusCode(statusCode);
+    testResponse(response, responseFieldName, responseFieldValueMatcher, statusCode);
   }
 
-  @Step("Send request to server")
-  public Response sendRequest() {
-    return given()
-        .header("Content-type", "application/json")
-        .and()
-        .body(body)
-        .when()
-        .post(COURIER_LOGIN_PATH);
+  @After
+  public void cleanup() {
+    courierApi.deleteTestData(LOGIN, PASSWORD);
   }
 }

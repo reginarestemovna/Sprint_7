@@ -1,14 +1,13 @@
 package order.creation;
 
-import static io.restassured.RestAssured.given;
 import static order.color.Color.BLACK;
 import static order.color.Color.GREY;
 import static org.hamcrest.Matchers.notNullValue;
 
+import api.OrderApi;
+import base.BaseTest;
 import io.qameta.allure.Description;
-import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,15 +19,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class OrderCreationTest {
-
-  private static final String ORDER_PATH = "/api/v1/orders";
-  private static final String URL = "http://qa-scooter.praktikum-services.ru";
+public class OrderCreationTest extends BaseTest {
 
   private final Integer statusCode;
   private final String responseFieldName;
   private final Matcher<Object> responseFieldValueMatcher;
   private final OrderCreationRequest body;
+
+  private OrderApi orderApi;
 
   public OrderCreationTest(
       Integer statusCode,
@@ -39,6 +37,13 @@ public class OrderCreationTest {
     this.responseFieldName = responseFieldName;
     this.responseFieldValueMatcher = responseFieldValueMatcher;
     this.body = body;
+  }
+
+  @Before
+  @Override
+  public void setUp() {
+    super.setUp();
+    orderApi = new OrderApi();
   }
 
   @Parameterized.Parameters
@@ -108,32 +113,12 @@ public class OrderCreationTest {
     };
   }
 
-  @Before
-  public void setUp() {
-    RestAssured.baseURI = URL;
-  }
-
   @Test
   @DisplayName("Test order creation of /api/v1/orders")
   @Description("Check status code and response message")
-  public void courierCreation() {
-    Response response = sendRequest();
+  public void orderCreation() {
+    Response response = orderApi.create(body);
 
-    response
-        .then()
-        .assertThat()
-        .body(responseFieldName, responseFieldValueMatcher)
-        .and()
-        .statusCode(statusCode);
-  }
-
-  @Step("Send request to server")
-  public Response sendRequest() {
-    return given()
-        .header("Content-type", "application/json")
-        .and()
-        .body(body)
-        .when()
-        .post(ORDER_PATH);
+    testResponse(response, responseFieldName, responseFieldValueMatcher, statusCode);
   }
 }
